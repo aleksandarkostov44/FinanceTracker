@@ -43,9 +43,25 @@ bool areEqual(const char* s1, const char* s2) {
     return *s1 == *s2;
 }
 
+const char* getArgument(const char* fullString, int commandLen) {
+    return fullString + commandLen + 1;
+}
+
+bool startsWith(const char* fullString, const char* prefix) {
+    while (*prefix) {
+        if (*fullString != *prefix) {
+            return false;
+        }
+        fullString++;
+        prefix++;
+    }
+    return true;
+}
+
 void printMenu() {
     std::cout << "\nAvailable commands: add, report, search <month>, sort <type>, forecast <monthsAhead>, chart, exit" << std::endl;
 }
+
 void addEntry(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths) {
     int month;
     std::cout << "Month: ";
@@ -142,17 +158,16 @@ void runApplication(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths) {
         else if (areEqual(command, "report")) {
             showReport(profile, activeMonths);
         }
-        else if (areEqual(command, "search")) {
-
+        else if (startsWith(command, "search ")) {
+            const char* monthName = getArgument(command, 6);
         }
-        else if (areEqual(command, "sort")) {
-
+        else if (startsWith(command, "sort ")) {
+            const char* type = getArgument(command, 4);
         }
-        else if (areEqual(command, "forecast")) {
-
+        else if (startsWith(command, "forecast ")) {
+            const char* stepsStr = getArgument(command, 8);
         }
         else if (areEqual(command, "chart")) {
-
         }
         else if (command[0] != '\0') {
             std::cout << "Unknown command." << std::endl;
@@ -179,16 +194,15 @@ void setupAccount(double profile[ACCOUNT_ROWS][MONTHS]) {
 int main() {
     double profile[ACCOUNT_ROWS][MONTHS];
     char command[MAX_STR];
-    bool shouldExit = false;
 
-    while (!shouldExit) 
+    while (true) 
     {
         std::cout << "Enter 'setup' to start or 'exit' to quit: ";
         std::cin.getline(command, MAX_STR);
 
         if (areEqual(command, "exit")) 
         {
-            shouldExit = true;
+            break;
         }
         else if (areEqual(command, "setup")) 
         {
