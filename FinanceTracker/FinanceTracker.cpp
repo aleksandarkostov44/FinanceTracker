@@ -62,6 +62,24 @@ void printMenu() {
     std::cout << "\nAvailable commands: add, report, search <month>, sort <type>, forecast <monthsAhead>, chart, exit" << std::endl;
 }
 
+int findMonthIndex(const char* name) {
+    for (int i = 0; i < MONTHS; i++) {
+        if (areEqual(name, MONTH_NAMES[i])) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int getDigitFromChar(const char* str) {
+    int res = 0;
+    while (*str >= '0' && *str <= '9') {
+        res = res * 10 + (*str - '0');
+        str++;
+    }
+    return res;
+}
+
 void addEntry(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths) {
     int month;
     std::cout << "Month: ";
@@ -141,6 +159,76 @@ void showReport(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths) {
     std::cout << averageBalance << std::endl;
 }
 
+void searchMonth(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths, const char* monthName) {
+    int idx = findMonthIndex(monthName);
+
+    if (idx == -1 || idx >= activeMonths) {
+        std::cout << "Invalid month name or month not in active range." << std::endl;
+        return;
+    }
+
+    if (profile[INCOME_INDEX][idx] == EMPTY) {
+        std::cout << "No data recorded for " << monthName << "." << std::endl;
+        return;
+    }
+
+    double income = profile[INCOME_INDEX][idx];
+    double expense = profile[EXPENSE_INDEX][idx];
+    double balance = income - expense;
+
+        std::cout << "Income: " << income << std::endl;
+        std::cout << "Expense: " << expense << std::endl;
+        std::cout << "Balance: " << (balance > 0 ? "+" : "") << balance << std::endl;
+
+        if (income > 0) {
+            double ratio = (expense / income) * 100.0;
+            std::cout << "Expense ratio: " << ratio << "%" << std::endl;
+        }
+        else if (income == 0 && expense > 0) {
+            std::cout << "Expense ratio: 100% (No income)" << std::endl;
+        }
+        else {
+            std::cout << "Expense ratio: 0%" << std::endl;
+        }
+}
+
+void calculateForecast(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths, const char* monthsAheadStr) {
+    int n = getDigitFromChar(monthsAheadStr);
+    if (n <= 0) {
+        std::cout << "Invalid number of months for forecast." << std::endl;
+        return;
+    }
+
+    double totalSavings = 0;
+    int monthsWithData = 0;
+
+    for (int i = 0; i < activeMonths; i++) {
+        if (profile[INCOME_INDEX][i] != EMPTY) {
+            totalSavings += (profile[INCOME_INDEX][i] - profile[EXPENSE_INDEX][i]);
+            monthsWithData++;
+        }
+    }
+
+    if (monthsWithData == 0) {
+        std::cout << "No data available to make a forecast." << std::endl;
+        return;
+    }
+
+    double delta = totalSavings / monthsWithData;
+
+    std::cout << "Current savings: " << totalSavings << std::endl;
+    std::cout << "Average monthly change: " << (delta > 0 ? "+" : "") << delta << std::endl;
+
+    if (delta >= 0) {
+        double predicted = totalSavings + n * delta;
+        std::cout << "Predicted savings after " << n << " months: " << predicted << std::endl;
+    }
+    else {
+        int monthsToZero = (int)(totalSavings / -delta);
+        std::cout << "Expected to run out of money after " << monthsToZero << " months." << std::endl;
+    }
+}
+
 void runApplication(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths) {
     char command[MAX_STR];
 
@@ -160,12 +248,14 @@ void runApplication(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths) {
         }
         else if (startsWith(command, "search ")) {
             const char* monthName = getArgument(command, 6);
+            searchMonth(profile, activeMonths, monthName);
         }
         else if (startsWith(command, "sort ")) {
             const char* type = getArgument(command, 4);
         }
         else if (startsWith(command, "forecast ")) {
             const char* stepsStr = getArgument(command, 8);
+            calculateForecast(profile, activeMonths, stepsStr);
         }
         else if (areEqual(command, "chart")) {
         }
