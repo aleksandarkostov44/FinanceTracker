@@ -13,7 +13,6 @@
 *
 */
 
-
 #include <iostream>
 const int MONTHS = 12;
 const int ACCOUNT_ROWS = 2;
@@ -80,6 +79,35 @@ int getDigitFromChar(const char* str) {
     return res;
 }
 
+double getSortValue(double profile[ACCOUNT_ROWS][MONTHS], int monthIdx, const char* type) {
+    if (areEqual(type, "income")) {
+        return profile[INCOME_INDEX][monthIdx];
+    }
+    if (areEqual(type, "expense")) {
+        return profile[EXPENSE_INDEX][monthIdx];
+    }
+    return profile[INCOME_INDEX][monthIdx] - profile[EXPENSE_INDEX][monthIdx];
+}
+
+void printShortMonth(int index) {
+    if (index < 0 || index >= MONTHS) return;
+
+    const char* name = MONTH_NAMES[index];
+    for (int i = 0; i < 3 && name[i] != '\0'; i++) {
+        std::cout << name[i];
+    }
+}
+
+double findMaxIncome(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths) {
+    double maxVal = 0;
+    for (int i = 0; i < activeMonths; i++) {
+        if (profile[INCOME_INDEX][i] > maxVal) {
+            maxVal = profile[INCOME_INDEX][i];
+        }
+    }
+    return maxVal;
+}
+
 void addEntry(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths) {
     int month;
     std::cout << "Month: ";
@@ -137,7 +165,8 @@ void showReport(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths) {
             totalExpense += expense;
             monthsWithData++;
 
-            std::cout << MONTH_NAMES[i] << " | " << income << " | " << expense << " | ";
+            printShortMonth(i);
+            std::cout << " | " << income << " | " << expense << " | ";
             if (balance > 0) std::cout << "+";
             std::cout << balance << std::endl;
         }
@@ -192,6 +221,46 @@ void searchMonth(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths, const c
         }
 }
 
+void sortByType(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths, const char* type) {
+    if (activeMonths == 0) {
+        std::cout << "Error: No profile data." << std::endl;
+        return;
+    }
+
+    int indices[MONTHS];
+    for (int i = 0; i < activeMonths; i++) {
+        indices[i] = i;
+    }
+
+    for (int i = 0; i < activeMonths - 1; i++) {
+        int maxPos = i;
+        for (int j = i + 1; j < activeMonths; j++) {
+            double val1 = getSortValue(profile, indices[maxPos], type);
+            double val2 = getSortValue(profile, indices[j], type);
+
+            if (val2 > val1) {
+                maxPos = j;
+            }
+        }
+        int temp = indices[i];
+        indices[i] = indices[maxPos];
+        indices[maxPos] = temp;
+    }
+
+    std::cout << "Sorted by monthly " << type << " (descending):" << std::endl;
+    int topCount = (activeMonths < 3) ? activeMonths : 3;
+
+    for (int i = 0; i < topCount; i++) {
+        int mIdx = indices[i];
+        double val = getSortValue(profile, mIdx, type);
+        std::cout << i + 1 << ". ";
+        printShortMonth(mIdx);
+        std::cout << ": ";
+        if (val > 0) std::cout << "+";
+        std::cout << val << std::endl;
+    }
+}
+
 void calculateForecast(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths, const char* monthsAheadStr) {
     int n = getDigitFromChar(monthsAheadStr);
     if (n <= 0) {
@@ -229,7 +298,32 @@ void calculateForecast(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths, c
     }
 }
 
-void runApplication(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths) {
+void drawChart(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths) {
+    double max = findMaxIncome(profile, activeMonths);
+    if (max <= 0) {
+        std::cout << "No income data to display chart." << std::endl;
+        return;
+    }
+    std::cout << "\n=== YEARLY FINANCIAL CHART ===" << std::endl;
+    int startY = ((int)max / 500 + (max > 0 ? 1 : 0)) * 500;
+    for (int y = startY; y >= 500; y -= 500) {
+        std::cout << (y < 1000 ? " " : "") << y << " | ";
+        for (int i = 0; i < activeMonths; i++) {
+            if (profile[INCOME_INDEX][i] >= y) std::cout << " #  ";
+            else std::cout << "    ";
+        }
+        std::cout << std::endl;
+    }
+    std::cout << "     --------------------------------------------" << std::endl;
+    std::cout << "      ";
+    for (int i = 0; i < activeMonths; i++) {
+        printShortMonth(i);
+        std::cout << " ";
+    }
+    std::cout << std::endl;
+}
+
+void setupMenu(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths) {
     char command[MAX_STR];
 
     while (true) {
@@ -238,6 +332,7 @@ void runApplication(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths) {
         std::cin.getline(command, MAX_STR);
 
         if (areEqual(command, "exit")) {
+            showReport(profile, activeMonths);
             return;
         }
         if (areEqual(command, "add")) {
@@ -252,12 +347,14 @@ void runApplication(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths) {
         }
         else if (startsWith(command, "sort ")) {
             const char* type = getArgument(command, 4);
+            sortByType(profile, activeMonths, type);
         }
         else if (startsWith(command, "forecast ")) {
             const char* stepsStr = getArgument(command, 8);
             calculateForecast(profile, activeMonths, stepsStr);
         }
         else if (areEqual(command, "chart")) {
+            drawChart(profile, activeMonths);
         }
         else if (command[0] != '\0') {
             std::cout << "Unknown command." << std::endl;
@@ -265,57 +362,39 @@ void runApplication(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths) {
     }
 }
 
-void setupAccount(double profile[ACCOUNT_ROWS][MONTHS]) {
-    int n;
-    std::cout << "Enter number of months: ";
-    std::cin >> n;
-    std::cin.ignore();
+void runApplication(double profile[ACCOUNT_ROWS][MONTHS]) {
+    char command[MAX_STR];
 
-    if (n > 0 && n <= MONTHS) {
-        invalidateProfile(profile);
-        std::cout << "Profile created for " << n << " months." << std::endl;
-        runApplication(profile, n);
-    }
-    else {
-        std::cout << "Invalid range (1-12)." << std::endl;
+    while (true) {
+        std::cout << "Enter 'setup' to start or 'exit' to quit: ";
+        std::cin.getline(command, MAX_STR);
+
+        if (areEqual(command, "exit")) {
+            break;
+        }
+        else if (areEqual(command, "setup")) {
+            int n;
+            std::cout << "Enter number of months (1-12): ";
+            std::cin >> n;
+            std::cin.ignore();
+
+            if (n > 0 && n <= MONTHS) {
+                invalidateProfile(profile);
+                std::cout << "Profile created successfully." << std::endl;
+                setupMenu(profile, n);
+            }
+            else {
+                std::cout << "Invalid months (1-12)." << std::endl;
+            }
+        }
+        else if (command[0] != '\0') {
+            std::cout << "Error: You must run 'setup' first!" << std::endl;
+        }
     }
 }
 
 int main() {
     double profile[ACCOUNT_ROWS][MONTHS];
-    char command[MAX_STR];
-
-    while (true) 
-    {
-        std::cout << "Enter 'setup' to start or 'exit' to quit: ";
-        std::cin.getline(command, MAX_STR);
-
-        if (areEqual(command, "exit")) 
-        {
-            break;
-        }
-        else if (areEqual(command, "setup")) 
-        {
-            int n;
-            std::cout << "Enter number of months: ";
-            std::cin >> n;
-            std::cin.ignore();
-
-            if (n > 0 && n <= MONTHS) 
-            {
-                invalidateProfile(profile);
-                std::cout << "Profile created successfully." << std::endl;
-                runApplication(profile, n);
-            }
-            else 
-            {
-                std::cout << "Invalid months (1-12)." << std::endl;
-            }
-        }
-        else if (command[0] != '\0') 
-        {
-            std::cout << "Error: You must run 'setup' first!" << std::endl;
-        }
-    }
+    runApplication(profile);
     return 0;
 }
