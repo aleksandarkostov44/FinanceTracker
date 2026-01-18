@@ -63,7 +63,7 @@ bool startsWith(const char* fullString, const char* prefix) {
 }
 
 void printMenu() {
-    std::cout << "\nAvailable commands: add, report, search <month>, sort <type>, forecast <monthsAhead>, chart, exit" << std::endl;
+    std::cout << "\nAvailable commands: add, report, search <monthName>, sort <type>, forecast <monthsAhead>, chart, exit" << std::endl;
 }
 
 int findMonthIndex(const char* name) {
@@ -125,24 +125,46 @@ double findMaxIncome(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths) {
     return maxVal;
 }
 
+bool hasInputError() {
+    if (std::cin.fail()) {
+        std::cin.clear();
+        std::cin.ignore(1000, '\n');
+        std::cout << "Error: Invalid input. Please enter a number." << std::endl;
+        return true;
+    }
+    return false;
+}
+
 void addEntry(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths) {
     int month;
-    std::cout << "Month: ";
-    std::cin >> month;
-    if (month < 1 || month > activeMonths) 
-    {
-        std::cout << "Invalid month number! Please use 1 to " << activeMonths << "." << std::endl;
-        std::cin.ignore(1000, '\n');
-        return;
+    while (true) {
+        std::cout << "Month: ";
+        std::cin >> month;
+        if (hasInputError()) continue;
+
+        if (month < 1 || month > activeMonths) {
+            std::cout << "Invalid month number! Please use 1 to " << activeMonths << "." << std::endl;
+            continue;
+        }
+        break;
     }
 
     int idx = month - 1;
     double inputIncome, inputExpense;
+    while (true) {
+        std::cout << "Enter income: ";
+        std::cin >> inputIncome;
+        if (hasInputError()) continue;
+        break;
+    }
 
-    std::cout << "Enter income: ";
-    std::cin >> inputIncome;
-    std::cout << "Enter expense: ";
-    std::cin >> inputExpense;
+    while (true) {
+        std::cout << "Enter expense: ";
+        std::cin >> inputExpense;
+        if (hasInputError()) continue;
+        break;
+    }
+
     std::cin.ignore(1000, '\n');
 
     if (profile[INCOME_INDEX][idx] == EMPTY) 
@@ -255,51 +277,47 @@ void searchMonth(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths, const c
 }
 
 void sortByType(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths, const char* type) {
-    if (activeMonths == 0) 
-    {
-        std::cout << "Error: No profile data." << std::endl;
+    int validIndices[MONTHS];
+    int count = 0;
+
+    for (int i = 0; i < activeMonths; i++) {
+        if (profile[INCOME_INDEX][i] != EMPTY) {
+            validIndices[count++] = i;
+        }
+    }
+
+    if (count == 0) {
+        std::cout << "No data recorded yet for sorting." << std::endl;
         return;
     }
 
-    int indices[MONTHS];
-    for (int i = 0; i < activeMonths; i++) 
-    {
-        indices[i] = i;
-    }
-
-    for (int i = 0; i < activeMonths - 1; i++) 
-    {
+    for (int i = 0; i < count - 1; i++) {
         int maxPos = i;
-        for (int j = i + 1; j < activeMonths; j++) 
+        for (int j = i + 1; j < count; j++) 
         {
-            double val1 = getSortValue(profile, indices[maxPos], type);
-            double val2 = getSortValue(profile, indices[j], type);
+            double val1 = getSortValue(profile, validIndices[maxPos], type);
+            double val2 = getSortValue(profile, validIndices[j], type);
 
             if (val2 > val1) 
             {
                 maxPos = j;
             }
         }
-        int temp = indices[i];
-        indices[i] = indices[maxPos];
-        indices[maxPos] = temp;
+        int temp = validIndices[i];
+        validIndices[i] = validIndices[maxPos];
+        validIndices[maxPos] = temp;
     }
 
     std::cout << "Sorted by monthly " << type << " (descending):" << std::endl;
-    int topCount = (activeMonths < 3) ? activeMonths : 3;
+    int topLimit = (count < 3) ? count : 3;
 
-    for (int i = 0; i < topCount; i++) 
-    {
-        int mIdx = indices[i];
+    for (int i = 0; i < topLimit; i++) {
+        int mIdx = validIndices[i];
         double val = getSortValue(profile, mIdx, type);
+
         std::cout << i + 1 << ". ";
         printShortMonth(mIdx);
-        std::cout << ": ";
-        if (val > 0)
-        {
-            std::cout << "+";
-        }
-        std::cout << val << std::endl;
+        std::cout << ": " << (val > 0 ? "+" : "") << val << std::endl;
     }
 }
 
@@ -341,7 +359,7 @@ void calculateForecast(double profile[ACCOUNT_ROWS][MONTHS], int activeMonths, c
     }
     else 
     {
-        std::cout << "You are out of money! " << std::endl;
+        std::cout << "You are out of money!" << std::endl;
     }
 }
 
@@ -444,24 +462,30 @@ void runApplication(double profile[ACCOUNT_ROWS][MONTHS]) {
         else if (areEqual(command, "setup")) 
         {
             int n;
-            std::cout << "Enter number of months (1-12): ";
-            std::cin >> n;
-            std::cin.ignore();
+            while (true) {
+                std::cout << "Enter number of months (1-12): ";
+                std::cin >> n;
 
-            if (n > 0 && n <= MONTHS) 
-            {
-                invalidateProfile(profile);
-                std::cout << "Profile created successfully." << std::endl;
-                setupMenu(profile, n);
-            }
-            else 
-            {
-                std::cout << "Invalid months (1-12)." << std::endl;
+                if (hasInputError()) {
+                    continue;
+                }
+
+                std::cin.ignore(1000, '\n');
+
+                if (n > 0 && n <= MONTHS) {
+                    invalidateProfile(profile);
+                    std::cout << "Profile created successfully." << std::endl;
+                    setupMenu(profile, n);
+                    break;
+                }
+                else {
+                    std::cout << "Invalid months (1-12)." << std::endl;
+                }
             }
         }
         else if (command[0] != '\0') 
         {
-            std::cout << "Error: You must run 'setup' first!" << std::endl;
+            std::cout << "Error: You must run 'setup' first to create an account!" << std::endl;
         }
     }
 }
